@@ -150,7 +150,7 @@ Up to the three earliest raw frames per well, each fitted independently
 | 3.3.4 | Specific growth rate | least-squares slope of `ln(area)` vs hours: `k = polyfit(t, log(a), 1)` over a valid window at least three frames wide (first to last valid frame ≥ 2 images apart — the window the `no_growth` test needs), with `t[-1] > t[0]` and `a > 0`; narrower windows (single valid frame, two adjacent frames) get no rates | `analysis.py:524, 527-529` |
 | 3.3.5 | Doublings / absolute growth | `k · 24 / ln 2` (day⁻¹); `(a[-1] − a[0]) / (t[-1] − t[0])` (px/h) | `analysis.py:530, 532-534` |
 
-### 3.4 QA overlay on a raw frame (`qa_overlay`, `analysis.py:843-917`)
+### 3.4 QA overlay on a raw frame (`qa_overlay`, `analysis.py:852-928`)
 
 The raw frame with the highest frame number that has trajectory rows; a
 well with no rows at all gets a rim-only overlay (circle + rim zone on its
@@ -158,10 +158,10 @@ last raw frame, no colony tinting; logged).
 
 | # | Operation | Exact math | Code |
 | --- | --- | --- | --- |
-| 3.4.1 | Load + stretch + RGB | `im = tifffile.imread(src).astype(np.float32)`; `u8 = stretch_uint8(im)` (the 1/99 percentile stretch of `io.py:140-152`); `rgb = np.stack([u8]·3, −1)` | `analysis.py:878-880` |
-| 3.4.2 | Colony tint | `sel[m] = 0.45` (m = colony mask); `rgb = (rgb·(1 − sel) + color·sel).astype(np.uint8)`; edge = `m & ~ndi.binary_erosion(m)` (1-px boundary, scipy cross erosion) painted solid | `analysis.py:887-896` (`tint`), edge at `analysis.py:903` |
-| 3.4.3 | Circle + rim rings | `d = √((yy − cy)² + (xx − cx)²)`; `rgb[\|d − R\| < 2.5]` blue (well circle), `rgb[\|d − (R − rim_width)\| < 2.5]` orange (rim boundary) | `analysis.py:912-915` |
-| 3.4.4 | Downscale + save | `Image.fromarray(rgb).resize((512, 512), BILINEAR).save(out_path)` | `analysis.py:916-917` |
+| 3.4.1 | Load + stretch + RGB | `im = tifffile.imread(src).astype(np.float32)`; `u8 = stretch_uint8(im)` (the 1/99 percentile stretch of `io.py:140-152`); `rgb = np.stack([u8]·3, −1)` | `analysis.py:888-890` |
+| 3.4.2 | Colony tint | `sel[m] = 0.45` (m = colony mask); `rgb = (rgb·(1 − sel) + color·sel).astype(np.uint8)`; edge = `m & ~ndi.binary_erosion(m, iterations=QA_EDGE_EROSION)` (4-px boundary, scipy cross erosion, `QA_EDGE_EROSION = 4`) painted solid | `analysis.py:897-906` (`tint`), edge at `analysis.py:913` |
+| 3.4.3 | Circle + rim rings | `d = √((yy − cy)² + (xx − cx)²)`; `rgb[\|d − R\| < QA_RING_HALF_WIDTH_PX]` blue (well circle), `rgb[\|d − (R − rim_width)\| < QA_RING_HALF_WIDTH_PX]` orange (rim boundary); `QA_RING_HALF_WIDTH_PX = 5.0` (10-px stroke, ≈2.5 px after the downscale) | `analysis.py:924-926` |
+| 3.4.4 | Downscale + save | `Image.fromarray(rgb).resize((512, 512), BILINEAR).save(out_path)` | `analysis.py:927-928` |
 
 ---
 

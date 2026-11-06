@@ -839,6 +839,15 @@ def plot_growth_rates(rates, out_path, well_names="", alpha_on=True):
 
 # ------------------------------------------------------------------- QA ------
 
+#: Half-width of the circle and rim strokes, in raw-frame pixels (the ring is
+#: ``2 * QA_RING_HALF_WIDTH_PX`` thick, ≈2.5 px after the 512×512 downscale
+#: of a 2048×2048 frame). Doubled from 2.5 after the overlays read too thin.
+QA_RING_HALF_WIDTH_PX = 5.0
+
+#: Erosion iterations for a colony's outline; 1 iteration is a 1-px boundary,
+#: so 4 makes the outline 4 px thick in the raw frame.
+QA_EDGE_EROSION = 4
+
 
 def qa_overlay(well, rows, seg_root, geo, options, out_path):
     """Overlay of fitted circles and colony states on a raw frame.
@@ -847,7 +856,8 @@ def qa_overlay(well, rows, seg_root, geo, options, out_path):
     circle (blue), rim-zone boundary (orange), colony edges green (valid),
     orange (pre-existing — excluded over its whole lifetime), red
     (rim-excluded) or magenta (bad segment — from the series start or not
-    growing), bad colonies filled translucent magenta. Saved as a 512x512
+    growing), bad colonies filled translucent magenta. Stroke widths come from
+    ``QA_RING_HALF_WIDTH_PX`` / ``QA_EDGE_EROSION``. Saved as a 512x512
     composite.
 
     A well with no rows at all (an empty well, or one whose colonies were
@@ -900,7 +910,7 @@ def qa_overlay(well, rows, seg_root, geo, options, out_path):
             m = lab == cid
             if not m.any():
                 continue
-            edge = m & ~ndi.binary_erosion(m)
+            edge = m & ~ndi.binary_erosion(m, iterations=QA_EDGE_EROSION)
             if r["bad"]:
                 rgb = tint(rgb, m, edge, (190, 60, 220))
             elif r["pre_existing"]:
@@ -911,8 +921,9 @@ def qa_overlay(well, rows, seg_root, geo, options, out_path):
                 rgb[edge] = (40, 220, 40)
     yy, xx = np.mgrid[0:im.shape[0], 0:im.shape[1]]
     d = np.sqrt((yy - cy) ** 2 + (xx - cx) ** 2)
-    rgb[np.abs(d - R) < 2.5] = (60, 120, 255)
-    rgb[np.abs(d - (R - options.rim_width_px)) < 2.5] = (255, 160, 40)
+    rgb[np.abs(d - R) < QA_RING_HALF_WIDTH_PX] = (60, 120, 255)
+    rgb[np.abs(d - (R - options.rim_width_px)) < QA_RING_HALF_WIDTH_PX] = \
+        (255, 160, 40)
     Image.fromarray(rgb).resize((512, 512), Image.Resampling.BILINEAR) \
         .save(out_path)
 
